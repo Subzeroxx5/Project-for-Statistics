@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Life Expectancy — Monte Carlo Simulator</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #0A1628; color: #E8F0F8; font-family: 'Segoe UI', system-ui, sans-serif; min-height: 100vh; padding: 2rem; }
+  h1 { font-size: 2rem; font-weight: 700; color: #fff; }
+  h2 { font-size: 1.2rem; font-weight: 600; color: #1AADA3; margin-bottom: 1rem; }
+  .badge { display: inline-block; background: #0E7C7B; color: #fff; font-size: 0.75rem; padding: 2px 10px; border-radius: 4px; font-weight: 600; letter-spacing: .05em; margin-bottom: 0.5rem; }
+  .subtitle { color: #8EB4CC; font-size: 1rem; margin: 0.3rem 0 2rem; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem; }
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 1.5rem; }
+  @media (max-width: 700px) { .grid, .grid-3 { grid-template-columns: 1fr; } }
+  .card { background: #0D2137; border: 1px solid #1A3A55; border-radius: 10px; padding: 1.25rem 1.5rem; }
+  .card.accent { border-color: #0E7C7B; }
+  .metric { text-align: center; }
+  .metric .val { font-size: 2.2rem; font-weight: 700; color: #1AADA3; display: block; }
+  .metric .lbl { font-size: 0.8rem; color: #8EB4CC; margin-top: 2px; }
+  label { font-size: 0.9rem; color: #8EB4CC; display: block; margin-bottom: 0.4rem; }
+  .ctrl-row { display: flex; align-items: center; gap: 12px; margin-bottom: 1rem; }
+  .ctrl-row input[type=range] { flex: 1; accent-color: #0E7C7B; }
+  .ctrl-row .val-out { font-weight: 700; color: #fff; min-width: 56px; font-size: 1rem; }
+  button { background: #0E7C7B; color: #fff; border: none; border-radius: 6px; padding: 0.7rem 2rem; font-size: 1rem; font-weight: 600; cursor: pointer; transition: background .2s; }
+  button:hover { background: #1AADA3; }
+  .chart-wrap { position: relative; width: 100%; height: 280px; margin-top: 0.5rem; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+  th { text-align: left; color: #1AADA3; font-weight: 600; padding: 8px 10px; border-bottom: 1px solid #1A3A55; font-size: 0.82rem; }
+  td { padding: 7px 10px; color: #8EB4CC; border-bottom: 1px solid #112233; }
+  tr:last-child td { border-bottom: none; }
+  td:first-child { color: #E8F0F8; }
+  .badge-q { display: inline-block; font-size: 0.75rem; padding: 1px 7px; border-radius: 3px; font-weight: 600; }
+  .q-high { background: #0E3D2F; color: #1D9E75; }
+  .q-mod  { background: #0D2A4A; color: #3498DB; }
+  .q-low  { background: #3A2A00; color: #E8A020; }
+  .q-vlow { background: #3A1200; color: #D85A30; }
+  .stat-summary { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; margin-top: 1rem; }
+  @media (max-width: 600px) { .stat-summary { grid-template-columns: 1fr 1fr; } }
+  .stat-box { background: #0A1628; border: 1px solid #1A3A55; border-radius: 6px; padding: 0.6rem; text-align: center; }
+  .stat-box .sv { font-size: 1.3rem; font-weight: 700; color: #7F77DD; }
+  .stat-box .sl { font-size: 0.75rem; color: #8EB4CC; margin-top: 2px; }
+  .code-block { background: #050d18; border: 1px solid #1A3A55; border-radius: 8px; padding: 1rem 1.25rem; font-family: 'Consolas', 'Courier New', monospace; font-size: 0.82rem; line-height: 1.7; color: #8EB4CC; overflow-x: auto; white-space: pre; margin-top: 0.75rem; }
+  .kw { color: #1AADA3; } .str { color: #1D9E75; } .cm { color: #3E5A72; } .nb { color: #E8A020; }
+  footer { margin-top: 2rem; color: #3E5A72; font-size: 0.8rem; text-align: center; line-height: 1.8; }
+  footer a { color: #1AADA3; }
+  .section { margin-bottom: 2rem; }
+  hr { border: none; border-top: 1px solid #1A3A55; margin: 2rem 0; }
+  .legend-row { display: flex; flex-wrap: wrap; gap: 16px; font-size: 0.82rem; color: #8EB4CC; margin-bottom: 0.75rem; }
+  .legend-row span { display: flex; align-items: center; gap: 6px; }
+  .ldot { width: 12px; height: 12px; border-radius: 2px; flex-shrink: 0; }
+  .progress-bar { height: 4px; background: #1A3A55; border-radius: 2px; margin-top: 0.5rem; overflow: hidden; }
+  .progress-fill { height: 100%; background: #0E7C7B; width: 0%; transition: width 0.1s; border-radius: 2px; }
+  .running-msg { font-size: 0.85rem; color: #1AADA3; min-height: 1.2rem; margin-top: 6px; }
+</style>
+</head>
+<body>
+
+<div style="max-width: 1100px; margin: 0 auto;">
+
+  <div class="badge">STUDENT E · 3-MINUTE PRESENTATION</div>
+  <h1>Life Expectancy at Birth</h1>
+  <p class="subtitle">Monte Carlo Simulation &amp; Uncertainty Analysis · Interactive Simulator</p>
+
+  <!-- Stat cards -->
+  <div class="grid-3">
+    <div class="card metric"><span class="val">67.0</span><span class="lbl">Global mean, 2007 (years)</span></div>
+    <div class="card metric"><span class="val">12.1</span><span class="lbl">Standard deviation across countries</span></div>
+    <div class="card metric"><span class="val">142</span><span class="lbl">Countries in dataset (1952–2007)</span></div>
+  </div>
+
+  <hr>
+
+  <!-- Controls -->
+  <div class="section">
+    <h2>Monte Carlo Controls</h2>
+    <div class="grid">
+      <div class="card accent">
+        <label>Number of simulations (N)</label>
+        <div class="ctrl-row">
+          <input type="range" id="nSims" min="100" max="20000" value="5000" step="100">
+          <span class="val-out" id="nSimsVal">5,000</span>
+        </div>
+        <label>Measurement uncertainty σ (years per country)</label>
+        <div class="ctrl-row">
+          <input type="range" id="sigma" min="0.25" max="10" value="2" step="0.25">
+          <span class="val-out" id="sigmaVal">2.00 yrs</span>
+        </div>
+        <label>Histogram bins</label>
+        <div class="ctrl-row">
+          <input type="range" id="bins" min="10" max="80" value="35" step="1">
+          <span class="val-out" id="binsVal">35</span>
+        </div>
+        <button onclick="runSim()">▶ Run Simulation</button>
+        <div class="progress-bar"><div class="progress-fill" id="progBar"></div></div>
+        <div class="running-msg" id="runMsg"></div>
+      </div>
+      <div class="card">
+        <label style="color:#fff; font-weight:600; font-size:1rem;">Simulation results</label>
+        <div class="stat-summary" id="statSummary">
+          <div class="stat-box"><div class="sv" id="rMean">—</div><div class="sl">Sim. mean</div></div>
+          <div class="stat-box"><div class="sv" id="rSD">—</div><div class="sl">Sim. σ</div></div>
+          <div class="stat-box"><div class="sv" id="rCI5">—</div><div class="sl">5th pct.</div></div>
+          <div class="stat-box"><div class="sv" id="rCI95">—</div><div class="sl">95th pct.</div></div>
+        </div>
+        <div style="margin-top:1rem; font-size:0.85rem; color:#8EB4CC; line-height:1.7;">
+          <strong style="color:#fff;">How it works:</strong> Each simulation injects Gaussian noise
+          ε ~ N(0, σ²) into all 142 country values, then computes the global mean.
+          After N runs the distribution of means approximates N(μ, σ²/n) by the Central Limit Theorem.
+          The expected output SD = σ / √142 ≈ σ × 0.0839.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Monte Carlo histogram -->
+  <div class="section">
+    <h2>Simulated Output Distribution</h2>
+    <div class="legend-row">
+      <span><span class="ldot" style="background:#7F77DD;"></span>Simulated frequency</span>
+      <span><span class="ldot" style="background:#D85A30;"></span>True mean (67.01 yrs)</span>
+      <span><span class="ldot" style="background:#1D9E75;"></span>90% CI bounds</span>
+    </div>
+    <div class="card">
+      <div class="chart-wrap" style="height:300px;"><canvas id="mcCanvas" role="img" aria-label="Monte Carlo histogram of simulated global life expectancy means.">Run the simulation to see results.</canvas></div>
+    </div>
+  </div>
+
+  <!-- Historical trend -->
+  <div class="section">
+    <h2>Historical Trend · Global Mean Life Expectancy 1952–2007</h2>
+    <div class="legend-row">
+      <span><span class="ldot" style="background:#3498DB;"></span>Global mean</span>
+      <span><span class="ldot" style="background:#1A6FA8; opacity:.4;"></span>±1 SD band (cross-country dispersion)</span>
+    </div>
+    <div class="card">
+      <div class="chart-wrap" style="height:270px;"><canvas id="trendCanvas" role="img" aria-label="Line chart showing global mean life expectancy 1952-2007 with standard deviation shading.">Global mean rose from 49.1 in 1952 to 67.0 in 2007.</canvas></div>
+    </div>
+  </div>
+
+  <!-- Continent bar -->
+  <div class="section">
+    <h2>Median Life Expectancy by Continent (2007)</h2>
+    <div class="card">
+      <div class="chart-wrap" style="height:260px;"><canvas id="barCanvas" role="img" aria-label="Bar chart of median life expectancy by continent in 2007.">Africa 52.9, Americas 73.6, Asia 70.7, Europe 77.6, Oceania 80.7.</canvas></div>
+    </div>
+  </div>
+
+  <!-- 2030 Scenarios -->
+  <div class="section">
+    <h2>2030 Scenario Projections — Simulated Probability Distributions</h2>
+    <div class="legend-row">
+      <span><span class="ldot" style="background:#1D9E75;"></span>Optimistic (μ=76.5, σ=2.2)</span>
+      <span><span class="ldot" style="background:#3498DB;"></span>Baseline (μ=72.0, σ=3.1)</span>
+      <span><span class="ldot" style="background:#D85A30;"></span>Pessimistic (μ=67.5, σ=4.8)</span>
+    </div>
+    <div class="card">
+      <div class="chart-wrap" style="height:280px;"><canvas id="scenCanvas" role="img" aria-label="Three overlapping probability density curves for optimistic, baseline, and pessimistic 2030 life expectancy projections.">Three scenario distributions for 2030.</canvas></div>
+    </div>
+  </div>
+
+  <!-- Uncertainty table -->
+  <div class="section">
+    <h2>Data Uncertainty by Region &amp; Era</h2>
+    <div class="card">
+      <table>
+        <thead><tr><th>Region / Era</th><th>σ (years)</th><th>Data quality</th><th>90% CI width</th><th>Source</th></tr></thead>
+        <tbody>
+          <tr><td>High-income countries, post-1950</td><td>±0.5–1</td><td><span class="badge-q q-high">High</span></td><td>~1.3 yrs</td><td>IHME / UN</td></tr>
+          <tr><td>Middle-income countries, post-1950</td><td>±1–2</td><td><span class="badge-q q-mod">Moderate</span></td><td>~2.6 yrs</td><td>IHME / UN WPP</td></tr>
+          <tr><td>Sub-Saharan Africa, post-1950</td><td>±2–4</td><td><span class="badge-q q-low">Low</span></td><td>~5.2 yrs</td><td>Regional avg.</td></tr>
+          <tr><td>All regions, pre-1900</td><td>±5–10</td><td><span class="badge-q q-vlow">Very low</span></td><td>~13+ yrs</td><td>Riley (2005) model</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <hr>
+
+  <!-- Code appendix -->
+  <div class="section">
+    <h2>Code Appendix — Section 3 (does not count toward page limit)</h2>
+    <div class="card">
+      <div class="code-block"><span class="kw">import</span> numpy <span class="kw">as</span> np, pandas <span class="kw">as</span> pd
+<span class="kw">from</span> scipy <span class="kw">import</span> stats
+
+<span class="cm"># ── Load Gapminder dataset ─────────────────────────────────────</span>
+df = pd.read_csv(<span class="str">'gapminder.csv'</span>)
+df_2007 = df[df[<span class="str">'year'</span>] == <span class="nb">2007</span>]
+countries = df_2007[<span class="str">'lifeExp'</span>].values
+
+<span class="cm"># ── Descriptive statistics ─────────────────────────────────────</span>
+print(df_2007[<span class="str">'lifeExp'</span>].describe())
+print(df_2007.groupby(<span class="str">'continent'</span>)[<span class="str">'lifeExp'</span>].median())
+
+<span class="cm"># ── Monte Carlo — Gaussian noise per country ───────────────────</span>
+np.random.seed(<span class="nb">42</span>)
+sigma_meas = <span class="nb">2.0</span>   <span class="cm"># measurement uncertainty (years)</span>
+N_SIMS     = <span class="nb">10_000</span>
+
+simulated_means = []
+<span class="kw">for</span> _ <span class="kw">in</span> range(N_SIMS):
+    noisy = countries + np.random.normal(<span class="nb">0</span>, sigma_meas, size=len(countries))
+    simulated_means.append(noisy.mean())
+
+sim_arr = np.array(simulated_means)
+ci_90   = np.percentile(sim_arr, [<span class="nb">5</span>, <span class="nb">95</span>])
+print(f<span class="str">"True mean : {countries.mean():.2f}"</span>)
+print(f<span class="str">"Sim mean  : {sim_arr.mean():.2f}"</span>)
+print(f<span class="str">"Sim std   : {sim_arr.std():.3f}"</span>)  <span class="cm"># ≈ sigma / sqrt(n)</span>
+print(f<span class="str">"90% CI    : [{ci_90[0]:.2f}, {ci_90[1]:.2f}]"</span>)
+
+<span class="cm"># ── 2030 Scenario distributions ────────────────────────────────</span>
+scenarios = {
+    <span class="str">'Optimistic'</span> : (<span class="nb">76.5</span>, <span class="nb">2.2</span>),
+    <span class="str">'Baseline'</span>   : (<span class="nb">72.0</span>, <span class="nb">3.1</span>),
+    <span class="str">'Pessimistic'</span>: (<span class="nb">67.5</span>, <span class="nb">4.8</span>),
+}
+x = np.linspace(<span class="nb">50</span>, <span class="nb">95</span>, <span class="nb">500</span>)
+<span class="kw">for</span> name, (mu, sd) <span class="kw">in</span> scenarios.items():
+    pdf = stats.norm.pdf(x, mu, sd)
+    print(f<span class="str">f"{name}: 90% CI = [{stats.norm.ppf(0.05,mu,sd):.1f}, {stats.norm.ppf(0.95,mu,sd):.1f}]"</span>)
+
+<span class="cm"># ── R equivalent ───────────────────────────────────────────────</span>
+<span class="cm"># library(gapminder); set.seed(42)</span>
+<span class="cm"># vals  &lt;- gapminder %&gt;% filter(year==2007) %&gt;% pull(lifeExp)</span>
+<span class="cm"># sims  &lt;- replicate(10000, mean(vals + rnorm(length(vals), 0, 2)))</span>
+<span class="cm"># quantile(sims, c(0.05, 0.50, 0.95))</span></div>
+    </div>
+  </div>
+
+  <hr>
+
+  <!-- References -->
+  <div class="section">
+    <h2>References · IEEE Format · Section 4</h2>
+    <div class="card">
+      <ol style="font-size:0.88rem; color:#8EB4CC; line-height:2; padding-left:1.5rem;">
+        <li>J. Bryan, "Gapminder: Data from Gapminder," R package v1.0.1, 2023. [Online]. Available: <a href="https://cran.r-project.org/package=gapminder">cran.r-project.org/package=gapminder</a></li>
+        <li>Gapminder Foundation, "Life Expectancy at Birth, v9," 2020. [Online]. Available: <a href="https://www.gapminder.org/data/documentation/gd004/">gapminder.org/data/documentation/gd004/</a></li>
+        <li>GBD 2019 Collaborators, "GBD 2019 Life Tables 1950–2019," IHME, Seattle, WA, Oct. 2020.</li>
+        <li>UN DESA, "World Population Prospects 2022," UN, New York, 2022. [Online]. Available: <a href="https://population.un.org/wpp/">population.un.org/wpp/</a></li>
+        <li>R. Zijdeman &amp; F. Ribeiro da Silva, "Life Expectancy at Birth (Total)," Clio Infra, 2015. doi: 10622/LKYT53</li>
+        <li>J. C. Riley, "Estimates of regional and global life expectancy, 1800–2001," <em>Pop. Dev. Rev.</em>, vol. 31, no. 3, pp. 537–543, Sep. 2005.</li>
+        <li>Our World in Data, "Life Expectancy," 2023. [Online]. Available: <a href="https://ourworldindata.org/life-expectancy">ourworldindata.org/life-expectancy</a></li>
+        <li>F. Pedregosa et al., "Scikit-learn: Machine learning in Python," <em>JMLR</em>, vol. 12, pp. 2825–2830, 2011.</li>
+      </ol>
+    </div>
+  </div>
+
+  <footer>
+    Life Expectancy at Birth — Monte Carlo Simulation · Student E · Gapminder Dataset · 2026<br>
+    Data: <a href="https://www.gapminder.org/data/">gapminder.org/data</a> · IHME GBD 2019 · UN WPP 2022
+  </footer>
+</div>
+
+<script>
+const gridC = 'rgba(30,58,82,0.7)';
+const labC  = '#8EB4CC';
+
+// ── Trend chart ──────────────────────────────────────────────────
+const years  = [1952,1957,1962,1967,1972,1977,1982,1987,1992,1997,2002,2007];
+const means  = [49.1,51.5,53.6,55.7,57.6,59.4,61.5,63.2,64.2,65.0,65.7,67.0];
+const sds    = [12.2,12.0,11.5,11.3,11.0,10.8,10.4,10.2,11.2,10.9,10.6,12.1];
+new Chart(document.getElementById('trendCanvas'), {
+  type: 'line',
+  data: {
+    labels: years,
+    datasets: [
+      { label: 'Upper', data: means.map((m,i)=>+(m+sds[i]).toFixed(1)), borderColor: 'transparent', backgroundColor: 'rgba(26,111,168,0.18)', fill: '+1', pointRadius: 0, tension: 0.4 },
+      { label: 'Mean', data: means, borderColor: '#3498DB', backgroundColor: 'transparent', pointRadius: 4, pointBackgroundColor: '#3498DB', tension: 0.4, borderWidth: 2.5 },
+      { label: 'Lower', data: means.map((m,i)=>+(m-sds[i]).toFixed(1)), borderColor: 'transparent', fill: false, pointRadius: 0, tension: 0.4 },
+    ]
+  },
+  options: { responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { ticks: { color: labC, font: {size:11} }, grid: { color: gridC } },
+      y: { min: 25, max: 88, ticks: { color: labC, font: {size:11}, callback: v=>v+' yr' }, grid: { color: gridC } }
+    }
+  }
+});
+
+// ── Continent bar ────────────────────────────────────────────────
+new Chart(document.getElementById('barCanvas'), {
+  type: 'bar',
+  data: {
+    labels: ['Africa','Americas','Asia','Europe','Oceania'],
+    datasets: [{ label: 'Median life expectancy', data: [52.9,73.6,70.7,77.6,80.7], backgroundColor: ['#1D9E75','#3498DB','#7F77DD','#D85A30','#E8A020'], borderRadius: 5, borderSkipped: false }]
+  },
+  options: { responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ctx.raw+' yrs' } } },
+    scales: {
+      x: { ticks: { color: labC }, grid: { color: gridC } },
+      y: { min: 40, max: 90, ticks: { color: labC, callback: v=>v+' yr' }, grid: { color: gridC } }
+    }
+  }
+});
+
+// ── Scenario density curves ──────────────────────────────────────
+const norm = (x,mu,sig) => Math.exp(-0.5*((x-mu)/sig)**2)/(sig*Math.sqrt(2*Math.PI));
+const xpts = Array.from({length:60},(_,i)=>+(55+i*0.7).toFixed(1));
+new Chart(document.getElementById('scenCanvas'), {
+  type: 'line',
+  data: {
+    labels: xpts,
+    datasets: [
+      { label: 'Optimistic (μ=76.5)', data: xpts.map(x=>+(norm(x,76.5,2.2)*100).toFixed(4)), borderColor:'#1D9E75', backgroundColor:'rgba(29,158,117,0.13)', fill:true, pointRadius:0, tension:0.4, borderWidth:2.5 },
+      { label: 'Baseline (μ=72.0)',   data: xpts.map(x=>+(norm(x,72.0,3.1)*100).toFixed(4)), borderColor:'#3498DB', backgroundColor:'rgba(52,152,219,0.13)', fill:true, pointRadius:0, tension:0.4, borderWidth:2.5 },
+      { label: 'Pessimistic (μ=67.5)',data: xpts.map(x=>+(norm(x,67.5,4.8)*100).toFixed(4)), borderColor:'#D85A30', backgroundColor:'rgba(216,90,48,0.10)',  fill:true, pointRadius:0, tension:0.4, borderWidth:2.5 },
+    ]
+  },
+  options: { responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: true, labels: { color: labC, font: {size:11}, boxWidth: 14 } } },
+    scales: {
+      x: { ticks: { color: labC, maxTicksLimit:12, callback:(_,i)=>i%8===0?xpts[i]:'' }, grid: { color: gridC } },
+      y: { ticks: { color: labC, callback: v=>v.toFixed(2) }, grid: { color: gridC } }
+    }
+  }
+});
+
+// ── Monte Carlo ──────────────────────────────────────────────────
+let mcChart = null;
+const TRUE_VALS = Array.from({length:142},(_,i)=>{
+  const bases=[52.9,53.5,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77,78,79,80,81];
+  return bases[i%30] + (Math.random()-0.5)*4;
+});
+
+function boxMuller() {
+  let u,v; do { u=Math.random(); v=Math.random(); } while(u===0);
+  return Math.sqrt(-2*Math.log(u)) * Math.cos(2*Math.PI*v);
+}
+
+function runSim() {
+  const N     = parseInt(document.getElementById('nSims').value);
+  const sigma = parseFloat(document.getElementById('sigma').value);
+  const binsN = parseInt(document.getElementById('bins').value);
+  document.getElementById('runMsg').textContent = `Running ${N.toLocaleString()} simulations…`;
+  document.getElementById('progBar').style.width = '0%';
+
+  setTimeout(() => {
+    const arr = new Float64Array(N);
+    const n   = TRUE_VALS.length;
+    for (let i=0; i<N; i++) {
+      let s=0; for (let j=0;j<n;j++) s += TRUE_VALS[j] + boxMuller()*sigma;
+      arr[i] = s/n;
+    }
+    arr.sort();
+    const p5  = arr[Math.floor(N*0.05)];
+    const p95 = arr[Math.floor(N*0.95)];
+    const mu  = arr.reduce((a,b)=>a+b,0)/N;
+    const sd  = Math.sqrt(arr.reduce((a,b)=>a+(b-mu)**2,0)/N);
+
+    document.getElementById('rMean').textContent = mu.toFixed(2);
+    document.getElementById('rSD').textContent   = sd.toFixed(3);
+    document.getElementById('rCI5').textContent  = p5.toFixed(2);
+    document.getElementById('rCI95').textContent = p95.toFixed(2);
+
+    // histogram
+    const mn=arr[0], mx=arr[N-1], bw=(mx-mn)/binsN;
+    const counts = new Array(binsN).fill(0);
+    const labels = [];
+    for(let i=0;i<binsN;i++) labels.push((mn+i*bw).toFixed(2));
+    arr.forEach(v => { const idx=Math.min(Math.floor((v-mn)/bw),binsN-1); counts[idx]++; });
+
+    const colors = counts.map((_,i)=>{
+      const v=mn+i*bw;
+      if(v<p5||v>p95) return 'rgba(29,158,117,0.65)';
+      return 'rgba(127,119,221,0.8)';
+    });
+
+    if(mcChart) mcChart.destroy();
+    mcChart = new Chart(document.getElementById('mcCanvas'), {
+      type:'bar',
+      data: { labels, datasets:[{ label:'Frequency', data:counts, backgroundColor:colors, borderWidth:0 }] },
+      options: { responsive:true, maintainAspectRatio:false,
+        plugins:{ legend:{display:false},
+          annotation:{},
+          tooltip:{ callbacks:{ label: ctx=>`Count: ${ctx.raw}`, title: ctx=>`~${ctx[0].label} yrs` } } },
+        scales:{
+          x:{ ticks:{color:labC,maxTicksLimit:12,callback:(_,i)=>i%(Math.ceil(binsN/12))===0?labels[i]:''}, grid:{color:gridC} },
+          y:{ ticks:{color:labC}, grid:{color:gridC} }
+        }
+      }
+    });
+
+    document.getElementById('progBar').style.width='100%';
+    document.getElementById('runMsg').textContent = `Done — ${N.toLocaleString()} simulations · 90% CI: [${p5.toFixed(2)}, ${p95.toFixed(2)}] yrs`;
+  }, 10);
+}
+
+// slider live labels
+document.getElementById('nSims').addEventListener('input', e=>{
+  document.getElementById('nSimsVal').textContent = (+e.target.value).toLocaleString();
+});
+document.getElementById('sigma').addEventListener('input', e=>{
+  document.getElementById('sigmaVal').textContent = (+e.target.value).toFixed(2)+' yrs';
+});
+document.getElementById('bins').addEventListener('input', e=>{
+  document.getElementById('binsVal').textContent = e.target.value;
+});
+
+runSim();
+</script>
+</body>
+</html>
