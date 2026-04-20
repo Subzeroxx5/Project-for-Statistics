@@ -181,7 +181,7 @@
     function uniform() { return Math.random(); }
     function exponential() { return -Math.log(1 - Math.random()); }
     function betaSample(a, b) {
-      // Johnk's method (works well for small a,b)
+      // Jöhnk's method (works well for small a,b)
       while (true) {
         const u = Math.pow(Math.random(), 1/a);
         const v = Math.pow(Math.random(), 1/b);
@@ -271,7 +271,6 @@
         ctx.lineWidth = 2.5;
         ctx.beginPath();
         const norm = (x) => Math.exp(-0.5 * ((x - mean) / std) ** 2) / (std * Math.sqrt(2 * Math.PI));
-        const scale = (maxCount / data.length) / (1 / (binW));
         let first = true;
         for (let px = 0; px <= plotW; px++) {
           const xv = min + (px / plotW) * (max - min);
