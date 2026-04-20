@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Central Limit Theorem Simulation</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      background: #f5f7fa;
+      color: #222;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2rem 1rem;
+    }
+    h1 {
+      font-size: 1.8rem;
+      margin-bottom: 0.4rem;
+      color: #1a237e;
+    }
+    .subtitle {
+      color: #555;
+      margin-bottom: 1.5rem;
+      font-size: 0.95rem;
+      text-align: center;
+      max-width: 600px;
+    }
+    .card {
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.1);
+      padding: 1.5rem 2rem;
+      width: 100%;
+      max-width: 700px;
+      margin-bottom: 1.5rem;
+    }
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1.2rem;
+      align-items: flex-end;
+      margin-bottom: 1rem;
+    }
+    label {
+      display: flex;
+      flex-direction: column;
+      font-size: 0.85rem;
+      color: #444;
+      gap: 4px;
+    }
+    select, input[type="range"] { cursor: pointer; }
+    select {
+      padding: 6px 8px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-size: 0.9rem;
+    }
+    input[type="range"] { width: 140px; accent-color: #1a237e; }
+    .val-display {
+      font-weight: bold;
+      color: #1a237e;
+      font-size: 0.95rem;
+    }
+    button {
+      background: #1a237e;
+      color: #fff;
+      border: none;
+      border-radius: 7px;
+      padding: 9px 22px;
+      font-size: 0.95rem;
+      cursor: pointer;
+      transition: background 0.2s;
+      align-self: flex-end;
+    }
+    button:hover { background: #283593; }
+    #resetBtn { background: #555; }
+    #resetBtn:hover { background: #333; }
+    .stats-row {
+      display: flex;
+      gap: 2rem;
+      margin-bottom: 0.5rem;
+      flex-wrap: wrap;
+    }
+    .stat-box {
+      background: #e8eaf6;
+      border-radius: 7px;
+      padding: 8px 16px;
+      font-size: 0.9rem;
+    }
+    .stat-box span { font-weight: bold; color: #1a237e; }
+    canvas {
+      width: 100%;
+      height: 260px;
+      display: block;
+      border-radius: 6px;
+      background: #fafafa;
+    }
+    .note {
+      font-size: 0.8rem;
+      color: #777;
+      margin-top: 0.8rem;
+    }
+    h2 { font-size: 1.1rem; margin-bottom: 1rem; color: #1a237e; }
+  </style>
+</head>
+<body>
+  <h1>Central Limit Theorem Simulation</h1>
+  <p class="subtitle">
+    Draw repeated samples from a chosen population distribution and watch the
+    <strong>distribution of sample means</strong> converge to a normal distribution
+    as sample size grows — the Central Limit Theorem in action.
+  </p>
+
+  <div class="card">
+    <h2>Settings</h2>
+    <div class="controls">
+      <label>
+        Population Distribution
+        <select id="distSelect">
+          <option value="uniform">Uniform [0, 1]</option>
+          <option value="exponential">Exponential (λ=1)</option>
+          <option value="skewed">Skewed (Beta α=2, β=5)</option>
+          <option value="bimodal">Bimodal</option>
+        </select>
+      </label>
+      <label>
+        Sample Size (n)
+        <input type="range" id="nSlider" min="1" max="100" value="30" />
+        <span class="val-display" id="nVal">30</span>
+      </label>
+      <label>
+        Number of Samples
+        <input type="range" id="samplesSlider" min="100" max="5000" step="100" value="1000" />
+        <span class="val-display" id="samplesVal">1000</span>
+      </label>
+      <button id="runBtn">▶ Run Simulation</button>
+      <button id="resetBtn">↺ Reset</button>
+    </div>
+    <div class="stats-row" id="statsRow" style="display:none">
+      <div class="stat-box">Mean of means: <span id="statMean">—</span></div>
+      <div class="stat-box">Std dev of means: <span id="statStd">—</span></div>
+      <div class="stat-box">Expected SE: <span id="statSE">—</span></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Population Distribution</h2>
+    <canvas id="popCanvas"></canvas>
+  </div>
+
+  <div class="card">
+    <h2>Distribution of Sample Means</h2>
+    <canvas id="meansCanvas"></canvas>
+    <p class="note">
+      The red curve shows the theoretical normal distribution predicted by the CLT.
+    </p>
+  </div>
+
+  <script>
+    const distSelect   = document.getElementById('distSelect');
+    const nSlider      = document.getElementById('nSlider');
+    const nVal         = document.getElementById('nVal');
+    const samplesSlider= document.getElementById('samplesSlider');
+    const samplesVal   = document.getElementById('samplesVal');
+    const runBtn       = document.getElementById('runBtn');
+    const resetBtn     = document.getElementById('resetBtn');
+    const statsRow     = document.getElementById('statsRow');
+    const statMean     = document.getElementById('statMean');
+    const statStd      = document.getElementById('statStd');
+    const statSE       = document.getElementById('statSE');
+    const popCanvas    = document.getElementById('popCanvas');
+    const meansCanvas  = document.getElementById('meansCanvas');
+
+    nSlider.addEventListener('input', () => nVal.textContent = nSlider.value);
+    samplesSlider.addEventListener('input', () => samplesVal.textContent = samplesSlider.value);
+
+    // --- Distributions ---
+    function uniform() { return Math.random(); }
+    function exponential() { return -Math.log(1 - Math.random()); }
+    function betaSample(a, b) {
+      // Johnk's method (works well for small a,b)
+      while (true) {
+        const u = Math.pow(Math.random(), 1/a);
+        const v = Math.pow(Math.random(), 1/b);
+        if (u + v <= 1) return u / (u + v);
+      }
+    }
+    function skewed() { return betaSample(2, 5); }
+    function bimodal() {
+      return Math.random() < 0.5
+        ? 0.25 + 0.12 * randNorm()
+        : 0.75 + 0.12 * randNorm();
+    }
+    function randNorm() {
+      let u = 0, v = 0;
+      while (u === 0) u = Math.random();
+      while (v === 0) v = Math.random();
+      return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+    }
+
+    const distributions = {
+      uniform:     { fn: uniform,     popMean: 0.5, popVar: 1/12 },
+      exponential: { fn: exponential, popMean: 1,   popVar: 1    },
+      skewed:      { fn: skewed,      popMean: 2/7, popVar: (2*5)/((7*7)*8) },
+      bimodal:     { fn: bimodal,     popMean: 0.5, popVar: null  },
+    };
+
+    // --- Canvas helpers ---
+    function setupCanvas(canvas) {
+      const dpr = window.devicePixelRatio || 1;
+      const rect = canvas.getBoundingClientRect();
+      canvas.width  = rect.width  * dpr;
+      canvas.height = rect.height * dpr;
+      const ctx = canvas.getContext('2d');
+      ctx.scale(dpr, dpr);
+      return { ctx, w: rect.width, h: rect.height };
+    }
+
+    function drawHistogram(canvas, data, color, normalOverlay) {
+      const { ctx, w, h } = setupCanvas(canvas);
+      const BINS = 40;
+      const min = Math.min(...data);
+      const max = Math.max(...data);
+      const binW = (max - min) / BINS || 1;
+      const counts = new Array(BINS).fill(0);
+      for (const v of data) {
+        const b = Math.min(BINS - 1, Math.floor((v - min) / binW));
+        counts[b]++;
+      }
+      const maxCount = Math.max(...counts);
+      const pad = { l: 45, r: 20, t: 20, b: 35 };
+      const plotW = w - pad.l - pad.r;
+      const plotH = h - pad.t - pad.b;
+
+      ctx.clearRect(0, 0, w, h);
+
+      // Axes
+      ctx.strokeStyle = '#ccc';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(pad.l, pad.t);
+      ctx.lineTo(pad.l, pad.t + plotH);
+      ctx.lineTo(pad.l + plotW, pad.t + plotH);
+      ctx.stroke();
+
+      // Bars
+      const bw = plotW / BINS;
+      for (let i = 0; i < BINS; i++) {
+        const bh = (counts[i] / maxCount) * plotH;
+        ctx.fillStyle = color;
+        ctx.fillRect(pad.l + i * bw + 1, pad.t + plotH - bh, bw - 2, bh);
+      }
+
+      // x-axis labels
+      ctx.fillStyle = '#555';
+      ctx.font = '11px Arial';
+      ctx.textAlign = 'center';
+      for (let i = 0; i <= 4; i++) {
+        const x = pad.l + (plotW / 4) * i;
+        const val = min + (max - min) * i / 4;
+        ctx.fillText(val.toFixed(2), x, pad.t + plotH + 16);
+      }
+
+      // Normal curve overlay
+      if (normalOverlay) {
+        const { mean, std } = normalOverlay;
+        ctx.strokeStyle = '#d32f2f';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        const norm = (x) => Math.exp(-0.5 * ((x - mean) / std) ** 2) / (std * Math.sqrt(2 * Math.PI));
+        const scale = (maxCount / data.length) / (1 / (binW));
+        let first = true;
+        for (let px = 0; px <= plotW; px++) {
+          const xv = min + (px / plotW) * (max - min);
+          const density = norm(xv);
+          const yScaled = (density * binW * data.length / maxCount) * plotH;
+          const cy = pad.t + plotH - yScaled;
+          if (first) { ctx.moveTo(pad.l + px, cy); first = false; }
+          else ctx.lineTo(pad.l + px, cy);
+        }
+        ctx.stroke();
+      }
+    }
+
+    // Draw population shape
+    function drawPopulation() {
+      const dist = distributions[distSelect.value];
+      const sample = Array.from({ length: 5000 }, dist.fn);
+      drawHistogram(popCanvas, sample, 'rgba(63,81,181,0.5)', null);
+    }
+
+    runBtn.addEventListener('click', () => {
+      const dist   = distributions[distSelect.value];
+      const n      = parseInt(nSlider.value);
+      const S      = parseInt(samplesSlider.value);
+
+      // Compute sample means
+      const means = [];
+      for (let s = 0; s < S; s++) {
+        let sum = 0;
+        for (let i = 0; i < n; i++) sum += dist.fn();
+        means.push(sum / n);
+      }
+
+      // Stats
+      const m = means.reduce((a, b) => a + b, 0) / S;
+      const std = Math.sqrt(means.reduce((a, b) => a + (b - m) ** 2, 0) / S);
+      statMean.textContent = m.toFixed(4);
+      statStd.textContent  = std.toFixed(4);
+
+      if (dist.popVar !== null) {
+        statSE.textContent = Math.sqrt(dist.popVar / n).toFixed(4);
+      } else {
+        statSE.textContent = '—';
+      }
+      statsRow.style.display = 'flex';
+
+      drawPopulation();
+      drawHistogram(meansCanvas, means, 'rgba(76,175,80,0.55)', { mean: m, std });
+    });
+
+    resetBtn.addEventListener('click', () => {
+      statsRow.style.display = 'none';
+      const { ctx: ctx1, w: w1, h: h1 } = setupCanvas(popCanvas);
+      ctx1.clearRect(0, 0, w1, h1);
+      const { ctx: ctx2, w: w2, h: h2 } = setupCanvas(meansCanvas);
+      ctx2.clearRect(0, 0, w2, h2);
+    });
+
+    distSelect.addEventListener('change', drawPopulation);
+    window.addEventListener('load', drawPopulation);
+    window.addEventListener('resize', drawPopulation);
+  </script>
+</body>
+</html>

@@ -1,0 +1,48 @@
+\documentclass[12pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage{hyperref}
+\usepackage{amsmath}
+\usepackage{geometry}
+\geometry{margin=1in}
+
+\title{Statistics Project: Central Limit Theorem Simulation}
+\author{}
+\date{}
+
+\begin{document}
+\maketitle
+
+\section*{Interactive Simulation}
+
+This report is accompanied by an interactive browser-based simulation that
+demonstrates the \textbf{Central Limit Theorem} (CLT).  The simulation lets
+you choose a population distribution (Uniform, Exponential, Skewed, or
+Bimodal), set the sample size~$n$ and the number of repeated samples, and
+observe the distribution of sample means converge to a normal distribution
+as $n$ grows.
+
+\medskip
+\noindent
+To launch the simulation, click the link below (requires an internet
+connection):
+
+\medskip
+\noindent
+\href{https://subzeroxx5.github.io/Project-for-Statistics/simulation.html}{Click to launch}
+
+\section*{Background}
+
+The Central Limit Theorem states that, given a population with mean
+$\mu$ and finite variance $\sigma^{2}$, the sampling distribution of
+the sample mean $\bar{X}_{n}$ approaches a normal distribution as the
+sample size $n \to \infty$:
+
+\[
+  \bar{X}_{n} \;\xrightarrow{d}\; \mathcal{N}\!\left(\mu,\,\frac{\sigma^{2}}{n}\right).
+\]
+
+The standard error of the mean is therefore $\sigma / \sqrt{n}$, which
+the simulation reports alongside the empirically observed standard
+deviation of the sample means.
+
+\end{document}
